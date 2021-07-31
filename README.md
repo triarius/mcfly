@@ -41,7 +41,7 @@ When suggesting a command, McFly takes into consideration:
 
 1. Install the tap:
     ```bash
-    brew tap cantino/mcfly https://github.com/cantino/mcfly
+    brew tap cantino/mcfly
     ```
 1. Install `mcfly`:
     ```bash
@@ -62,7 +62,6 @@ When suggesting a command, McFly takes into consideration:
     Fish:
     ```bash
     mcfly init fish | source
-    mcfly_key_bindings
     ```
 1. Run `. ~/.bashrc` / `. ~/.zshrc` / `source ~/.config/fish/config.fish` or restart your terminal emulator.
 
@@ -103,7 +102,6 @@ When suggesting a command, McFly takes into consideration:
     Fish:
     ```bash
     mcfly init fish | source
-    mcfly_key_bindings
     ```
 1. Run `. ~/.bashrc` / `. ~/.zshrc` / `source ~/.config/fish/config.fish` or restart your terminal emulator.
 
@@ -114,6 +112,32 @@ When suggesting a command, McFly takes into consideration:
     sudo port uninstall mcfly
     ```
 1. Remove the lines you added to `~/.bashrc` / `~/.zshrc` / `~/.config/fish/config.fish`.
+
+### Installing using our install script
+
+1. `curl -LSfs https://raw.githubusercontent.com/cantino/mcfly/master/ci/install.sh | sh -s -- --git cantino/mcfly`
+
+2. Add the following to the end of your `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` file, respectively:
+
+   Bash:
+
+   ```bash
+   eval "$(mcfly init bash)"
+   ```
+
+   Zsh:
+
+   ```bash
+   eval "$(mcfly init zsh)"
+   ```
+
+   Fish:
+
+   ```bash
+   mcfly init fish | source
+   ```
+
+3. Run `. ~/.bashrc` / `. ~/.zshrc` / `source ~/.config/fish/config.fish` or restart your terminal emulator.
 
 ### Installing manually from GitHub
 
@@ -134,7 +158,6 @@ When suggesting a command, McFly takes into consideration:
     Fish:
     ```bash
     mcfly init fish | source
-    mcfly_key_bindings
     ```
 1. Run `. ~/.bashrc` / `. ~/.zshrc` / `source ~/.config/fish/config.fish` or restart your terminal emulator.
 
@@ -159,7 +182,6 @@ When suggesting a command, McFly takes into consideration:
     Fish:
     ```bash
     mcfly init fish | source
-    mcfly_key_bindings
     ```
 1. Run `. ~/.bashrc` / `. ~/.zshrc` / `source ~/.config/fish/config.fish` or restart your terminal emulator.
 
@@ -218,6 +240,19 @@ fish:
 set -gx MCFLY_FUZZY true
 ```
 
+### Results Count
+To change the maximum number of results shown, set `MCFLY_RESULTS` (default: 10).
+
+bash / zsh:
+```bash
+export MCFLY_RESULTS=50
+```
+
+fish:
+```bash
+set -gx MCFLY_RESULTS 50
+```
+
 ### Slow startup
 
 If you have a very large history database and you notice that McFly launches slowly, you can set `MCFLY_HISTORY_LIMIT` to something like 10000 to limit how many records are considered when searching. In this example, McFly would search only the latest 10,000 entries.
@@ -237,7 +272,7 @@ If you have a very large history database and you notice that McFly launches slo
 
 `cargo test`
 
-### Releasing
+### Releasing (notes for @cantino)
 
 1. Edit `Cargo.toml` and bump the version.
 1. Edit CHANGELOG.txt
@@ -249,5 +284,8 @@ If you have a very large history database and you notice that McFly launches slo
 1. Let the build finish.
 1. Edit the new Release on Github.
 1. Edit `pkg/brew/mcfly.rb` and update the version and SHAs. (`shasum -a 256 ...`)
-1. `git push`
+1. Edit `../homebrew-mcfly/pkg/brew/mcfly.rb` too.
+1. Compare with `diff ../homebrew-mcfly/pkg/brew/mcfly.rb ../mcfly/pkg/brew/mcfly.rb ; diff ../homebrew-mcfly/HomebrewFormula/mcfly.rb ../mcfly/HomebrewFormula/mcfly.rb`
+1. `git add -p && git ci -m 'Update homebrew' && git push`
+1. `cd ../homebrew-mcfly && git add -p && git ci -m 'Update homebrew' && git push && cd ../mcfly`
 1. `cargo publish`

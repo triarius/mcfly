@@ -1,4 +1,17 @@
+0.5.7 - Jun 27, 2021
+ - Document MCFLY_RESULTS config value
+ - Initialize database inside a transaction for speed (thanks @SafariMonkey!)
+ - Move to cantino/homebrew-mcfly for tap install
+ - Show run time of commands (thanks @dmfay!)
+ - Clean PROMPT_COMMAND before joining with a semicolon in Bash
+ - Fix zsh interactivity test
+ - Make ^d delete forward (thanks @rbutoi!)
+ - Move to Github Actions for build and add install script instructions (thanks @praveenperera!)
+0.5.6 - Apr 1, 2021
+ - Fix fish shell initialization (thanks @domoritz)
+ - Fix fish shell escaping (thanks @scooter-dangle!)
 0.5.5 - Mar 12, 2021
+ - Fixed a crash during init without any history
  - Fixed a crash during init without any history
  - Fixed issue when deleting all history (thanks @akinnane!)
  - Add MCFLY_HISTORY_LIMIT to limit history search

@@ -7,11 +7,12 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn read_ignoring_utf_errors(path: &PathBuf) -> String {
+fn read_ignoring_utf_errors(path: &Path) -> String {
     let mut f =
         File::open(path).unwrap_or_else(|_| panic!("McFly error: {:?} file not found", &path));
     let mut buffer = Vec::new();
@@ -39,16 +40,16 @@ fn has_leading_timestamp(line: &str) -> bool {
 
 pub fn history_file_path() -> PathBuf {
     let path = PathBuf::from(env::var("HISTFILE").unwrap_or_else(|err| {
-        panic!(format!(
+        panic!(
             "McFly error: Please ensure HISTFILE is set for your shell ({})",
             err
-        ))
+        )
     }));
     fs::canonicalize(&path).unwrap_or_else(|err| {
-        panic!(format!(
+        panic!(
             "McFly error: The contents of $HISTFILE appear invalid ({})",
             err
-        ))
+        )
     })
 }
 
@@ -92,10 +93,10 @@ impl fmt::Display for HistoryCommand {
     }
 }
 
-pub fn full_history(path: &PathBuf, history_format: HistoryFormat) -> Vec<HistoryCommand> {
+pub fn full_history(path: &Path, history_format: HistoryFormat) -> Vec<HistoryCommand> {
     match history_format {
         HistoryFormat::Bash | HistoryFormat::Zsh { .. } => {
-            let history_contents = read_ignoring_utf_errors(&path);
+            let history_contents = read_ignoring_utf_errors(path);
             let zsh_timestamp_and_duration_regex = Regex::new(r"^: \d+:\d+;").unwrap();
             let when = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -114,7 +115,7 @@ pub fn full_history(path: &PathBuf, history_format: HistoryFormat) -> Vec<Histor
             // newlines) and timestamps, ignoring the 'paths' field.
             let mut commands = Vec::new();
 
-            let history_contents = read_ignoring_utf_errors(&path);
+            let history_contents = read_ignoring_utf_errors(path);
 
             // Store command strings, and add them as HistoryCommand when we see the timestamp.
             let mut command = None;
@@ -139,7 +140,7 @@ pub fn full_history(path: &PathBuf, history_format: HistoryFormat) -> Vec<Histor
     }
 }
 
-pub fn last_history_line(path: &PathBuf, history_format: HistoryFormat) -> Option<String> {
+pub fn last_history_line(path: &Path, history_format: HistoryFormat) -> Option<String> {
     // Could switch to https://github.com/mikeycgto/rev_lines
     full_history(path, history_format)
         .last()
@@ -147,7 +148,7 @@ pub fn last_history_line(path: &PathBuf, history_format: HistoryFormat) -> Optio
 }
 
 pub fn delete_last_history_entry_if_search(
-    path: &PathBuf,
+    path: &Path,
     history_format: HistoryFormat,
     debug: bool,
 ) {
@@ -188,7 +189,7 @@ pub fn delete_last_history_entry_if_search(
         .unwrap_or_else(|_| panic!("McFly error: Unable to update {:?}", &path));
 }
 
-pub fn delete_lines(path: &PathBuf, history_format: HistoryFormat, command: &str) {
+pub fn delete_lines(path: &Path, history_format: HistoryFormat, command: &str) {
     let commands = full_history(path, history_format);
 
     let zsh_timestamp_and_duration_regex = Regex::new(r"^: \d+:\d+;").unwrap();
@@ -205,17 +206,12 @@ pub fn delete_lines(path: &PathBuf, history_format: HistoryFormat, command: &str
         .unwrap_or_else(|_| panic!("McFly error: Unable to update {:?}", &path));
 }
 
-pub fn append_history_entry(command: &HistoryCommand, path: &PathBuf, debug: bool) {
+pub fn append_history_entry(command: &HistoryCommand, path: &Path, debug: bool) {
     let mut file = OpenOptions::new()
         .write(true)
         .append(true)
         .open(path)
-        .unwrap_or_else(|err| {
-            panic!(format!(
-                "McFly error: please make sure HISTFILE exists ({})",
-                err
-            ))
-        });
+        .unwrap_or_else(|err| panic!("McFly error: please make sure HISTFILE exists ({})", err));
 
     if debug {
         println!("McFly: Appended to file '{:?}': {}", &path, command);

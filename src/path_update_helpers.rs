@@ -4,18 +4,14 @@ use std::path::Path;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub fn normalize_path(incoming_path: &str) -> String {
-    let expanded_path = shellexpand::full(incoming_path).unwrap_or_else(|err| {
-        panic!(format!(
-            "McFly error: Unable to expand command path ({})",
-            err
-        ))
-    });
+    let expanded_path = shellexpand::full(incoming_path)
+        .unwrap_or_else(|err| panic!("McFly error: Unable to expand command path ({})", err));
 
     let current_dir = env::var("PWD").unwrap_or_else(|err| {
-        panic!(format!(
+        panic!(
             "McFly error: Unable to determine current directory ({})",
             err
-        ))
+        )
     });
     let current_dir_path = Path::new(&current_dir);
 
@@ -123,10 +119,7 @@ mod tests {
 
     #[test]
     fn normalize_path_works_with_tilda() {
-        assert_eq!(
-            normalize_path("~/"),
-            String::from(env::var("HOME").unwrap())
-        );
+        assert_eq!(normalize_path("~/"), env::var("HOME").unwrap());
         assert_eq!(
             normalize_path("~/foo"),
             PathBuf::from(env::var("HOME").unwrap())
@@ -147,10 +140,7 @@ mod tests {
                 .join("foo/baz")
                 .to_string_lossy()
         );
-        assert_eq!(
-            normalize_path("~/foo/bar/../.."),
-            String::from(env::var("HOME").unwrap())
-        );
+        assert_eq!(normalize_path("~/foo/bar/../.."), env::var("HOME").unwrap());
     }
 
     #[test]

@@ -37,6 +37,7 @@ pub struct Command {
     pub session_id: String,
     pub rank: f64,
     pub when_run: Option<i64>,
+    pub last_run: Option<i64>,
     pub exit_code: Option<i32>,
     pub selected: bool,
     pub dir: Option<String>,
@@ -129,14 +130,14 @@ impl History {
         self.connection.execute_named("INSERT INTO commands (cmd, cmd_tpl, session_id, when_run, exit_code, selected, dir, old_dir) VALUES (:cmd, :cmd_tpl, :session_id, :when_run, :exit_code, :selected, :dir, :old_dir)",
                                       &[
                                           (":cmd", &command.to_owned()),
-                                          (":cmd_tpl", &simplified_command.result.to_owned()),
+                                          (":cmd_tpl", &simplified_command.result),
                                           (":session_id", &session_id.to_owned()),
                                           (":when_run", &when_run.to_owned()),
                                           (":exit_code", &exit_code.to_owned()),
                                           (":selected", &selected),
                                           (":dir", &dir.to_owned()),
                                           (":old_dir", &old_dir.to_owned()),
-                                      ]).unwrap_or_else(|err| panic!(format!("McFly error: Insert into commands to work ({})", err)));
+                                      ]).unwrap_or_else(|err| panic!("McFly error: Insert into commands to work ({})", err));
     }
 
     fn determine_if_selected_from_ui(&self, command: &str, session_id: &str, dir: &str) -> bool {
@@ -154,10 +155,10 @@ impl History {
                 ],
             )
             .unwrap_or_else(|err| {
-                panic!(format!(
+                panic!(
                     "McFly error: DELETE from selected_commands to work ({})",
                     err
-                ))
+                )
             });
 
         // Delete any other pending selected commands for this session -- they must have been aborted or edited.
@@ -167,10 +168,10 @@ impl History {
                 &[(":session_id", &session_id.to_owned())],
             )
             .unwrap_or_else(|err| {
-                panic!(format!(
+                panic!(
                     "McFly error: DELETE from selected_commands to work ({})",
                     err
-                ))
+                )
             });
 
         rows_affected > 0
@@ -182,7 +183,7 @@ impl History {
                                           (":cmd", &command.to_owned()),
                                           (":session_id", &session_id.to_owned()),
                                           (":dir", &dir.to_owned())
-                                      ]).unwrap_or_else(|err| panic!(format!("McFly error: Insert into selected_commands to work ({})", err)));
+                                      ]).unwrap_or_else(|err| panic!("McFly error: Insert into selected_commands to work ({})", err));
     }
 
     // Update historical paths in our database if a directory has been renamed or moved.
@@ -242,24 +243,24 @@ impl History {
             like_query.push_str(cmd);
         }
 
-        like_query.push_str("%");
+        like_query.push('%');
 
         let query = "SELECT id, cmd, cmd_tpl, session_id, when_run, exit_code, selected, dir, rank,
-                                  age_factor, length_factor, exit_factor, recent_failure_factor,
-                                  selected_dir_factor, dir_factor, overlap_factor, immediate_overlap_factor,
-                                  selected_occurrences_factor, occurrences_factor
-                           FROM contextual_commands
-                           WHERE cmd LIKE (:like)
-                           ORDER BY rank DESC LIMIT :limit";
+                              age_factor, length_factor, exit_factor, recent_failure_factor,
+                              selected_dir_factor, dir_factor, overlap_factor, immediate_overlap_factor,
+                              selected_occurrences_factor, occurrences_factor, last_run
+                      FROM contextual_commands
+                      WHERE cmd LIKE (:like)
+                      ORDER BY rank DESC LIMIT :limit";
         let mut statement = self
             .connection
             .prepare(query)
-            .unwrap_or_else(|err| panic!(format!("McFly error: Prepare to work ({})", err)));
+            .unwrap_or_else(|err| panic!("McFly error: Prepare to work ({})", err));
         let command_iter = statement
             .query_map_named(&[(":like", &like_query), (":limit", &num)], |row| {
-                let text: String = row.get_checked(1).unwrap_or_else(|err| {
-                    panic!(format!("McFly error: cmd to be readable ({})", err))
-                });
+                let text: String = row
+                    .get_checked(1)
+                    .unwrap_or_else(|err| panic!("McFly error: cmd to be readable ({})", err));
                 let lowercase_text = text.to_lowercase();
                 let lowercase_cmd = cmd.to_lowercase();
 
@@ -276,7 +277,7 @@ impl History {
                                     return true;
                                 }
 
-                                return false;
+                                false
                             })
                             .map(|m| m.0);
 
@@ -292,96 +293,84 @@ impl History {
                 };
 
                 Command {
-                    id: row.get_checked(0).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: id to be readable ({})", err))
-                    }),
+                    id: row
+                        .get_checked(0)
+                        .unwrap_or_else(|err| panic!("McFly error: id to be readable ({})", err)),
                     cmd: text,
                     cmd_tpl: row.get_checked(2).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: cmd_tpl to be readable ({})", err))
+                        panic!("McFly error: cmd_tpl to be readable ({})", err)
                     }),
                     session_id: row.get_checked(3).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: session_id to be readable ({})", err))
+                        panic!("McFly error: session_id to be readable ({})", err)
                     }),
                     when_run: row.get_checked(4).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: when_run to be readable ({})", err))
+                        panic!("McFly error: when_run to be readable ({})", err)
                     }),
                     exit_code: row.get_checked(5).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: exit_code to be readable ({})", err))
+                        panic!("McFly error: exit_code to be readable ({})", err)
                     }),
                     selected: row.get_checked(6).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: selected to be readable ({})", err))
+                        panic!("McFly error: selected to be readable ({})", err)
                     }),
-                    dir: row.get_checked(7).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: dir to be readable ({})", err))
-                    }),
-                    rank: row.get_checked(8).unwrap_or_else(|err| {
-                        panic!(format!("McFly error: rank to be readable ({})", err))
-                    }),
+                    dir: row
+                        .get_checked(7)
+                        .unwrap_or_else(|err| panic!("McFly error: dir to be readable ({})", err)),
+                    rank: row
+                        .get_checked(8)
+                        .unwrap_or_else(|err| panic!("McFly error: rank to be readable ({})", err)),
                     match_bounds: bounds,
                     features: Features {
                         age_factor: row.get_checked(9).unwrap_or_else(|err| {
-                            panic!(format!("McFly error: age_factor to be readable ({})", err))
+                            panic!("McFly error: age_factor to be readable ({})", err)
                         }),
                         length_factor: row.get_checked(10).unwrap_or_else(|err| {
-                            panic!(format!(
-                                "McFly error: length_factor to be readable ({})",
-                                err
-                            ))
+                            panic!("McFly error: length_factor to be readable ({})", err)
                         }),
                         exit_factor: row.get_checked(11).unwrap_or_else(|err| {
-                            panic!(format!("McFly error: exit_factor to be readable ({})", err))
+                            panic!("McFly error: exit_factor to be readable ({})", err)
                         }),
                         recent_failure_factor: row.get_checked(12).unwrap_or_else(|err| {
-                            panic!(format!(
+                            panic!(
                                 "McFly error: recent_failure_factor to be readable ({})",
                                 err
-                            ))
+                            )
                         }),
                         selected_dir_factor: row.get_checked(13).unwrap_or_else(|err| {
-                            panic!(format!(
-                                "McFly error: selected_dir_factor to be readable ({})",
-                                err
-                            ))
+                            panic!("McFly error: selected_dir_factor to be readable ({})", err)
                         }),
                         dir_factor: row.get_checked(14).unwrap_or_else(|err| {
-                            panic!(format!("McFly error: dir_factor to be readable ({})", err))
+                            panic!("McFly error: dir_factor to be readable ({})", err)
                         }),
                         overlap_factor: row.get_checked(15).unwrap_or_else(|err| {
-                            panic!(format!(
-                                "McFly error: overlap_factor to be readable ({})",
-                                err
-                            ))
+                            panic!("McFly error: overlap_factor to be readable ({})", err)
                         }),
                         immediate_overlap_factor: row.get_checked(16).unwrap_or_else(|err| {
-                            panic!(format!(
+                            panic!(
                                 "McFly error: immediate_overlap_factor to be readable ({})",
                                 err
-                            ))
+                            )
                         }),
                         selected_occurrences_factor: row.get_checked(17).unwrap_or_else(|err| {
-                            panic!(format!(
+                            panic!(
                                 "McFly error: selected_occurrences_factor to be readable ({})",
                                 err
-                            ))
+                            )
                         }),
                         occurrences_factor: row.get_checked(18).unwrap_or_else(|err| {
-                            panic!(format!(
-                                "McFly error: occurrences_factor to be readable ({})",
-                                err
-                            ))
+                            panic!("McFly error: occurrences_factor to be readable ({})", err)
                         }),
                     },
+                    last_run: row.get_checked(19).unwrap_or_else(|err| {
+                        panic!("McFly error: last_run to be readable ({})", err)
+                    }),
                 }
             })
-            .unwrap_or_else(|err| panic!(format!("McFly error: Query Map to work ({})", err)));
+            .unwrap_or_else(|err| panic!("McFly error: Query Map to work ({})", err));
 
         let mut names = Vec::new();
         for result in command_iter {
             names.push(result.unwrap_or_else(|err| {
-                panic!(format!(
-                    "McFly error: Unable to load command from DB ({})",
-                    err
-                ))
+                panic!("McFly error: Unable to load command from DB ({})", err)
             }));
         }
 
@@ -402,7 +391,7 @@ impl History {
                     let b_mod = 1.0 - b_len as f64 / (a_len + b_len) as f64;
 
                     PartialOrd::partial_cmp(&(b.rank + b_mod), &(a.rank + a_mod))
-                        .unwrap_or_else(|| Ordering::Equal)
+                        .unwrap_or(Ordering::Equal)
                 })
                 .collect()
         }
@@ -438,12 +427,7 @@ impl History {
 
         self.connection
             .execute("DROP TABLE IF EXISTS temp.contextual_commands;", NO_PARAMS)
-            .unwrap_or_else(|err| {
-                panic!(format!(
-                    "McFly error: Removal of temp table to work ({})",
-                    err
-                ))
-            });
+            .unwrap_or_else(|err| panic!("McFly error: Removal of temp table to work ({})", err));
 
         let (mut when_run_min, when_run_max): (f64, f64) = self
             .connection
@@ -452,7 +436,7 @@ impl History {
                 NO_PARAMS,
                 |row| (row.get(0), row.get(1)),
             )
-            .unwrap_or_else(|err| panic!(format!("McFly error: Query to work ({})", err)));
+            .unwrap_or_else(|err| panic!("McFly error: Query to work ({})", err));
 
         if (when_run_min - when_run_max).abs() < std::f64::EPSILON {
             when_run_min -= 60.0 * 60.0;
@@ -501,7 +485,7 @@ impl History {
 
         self.connection.execute_named(
             "CREATE TEMP TABLE contextual_commands AS SELECT
-                  id, cmd, cmd_tpl, session_id, when_run, exit_code, selected, dir,
+                  id, cmd, cmd_tpl, session_id, when_run, MAX(when_run) AS last_run, exit_code, selected, dir,
 
                   /* to be filled in later */
                   0.0 AS rank,
@@ -539,7 +523,10 @@ impl History {
                   /* percentage of time this command is run relative to the most common command (1: this is the most common command, 0: this is the least common command) */
                   COUNT(*) / :max_occurrences AS occurrences_factor
 
-                  FROM commands c WHERE id > :min_id AND when_run > :start_time AND when_run < :end_time GROUP BY cmd ORDER BY id DESC;",
+                  FROM commands c
+                  WHERE id > :min_id AND when_run > :start_time AND when_run < :end_time
+                  GROUP BY cmd
+                  ORDER BY id DESC;",
             &[
                 (":when_run_max", &when_run_max),
                 (":history_duration", &(when_run_max - when_run_min)),
@@ -553,10 +540,10 @@ impl History {
                 (":last_commands1", &last_commands[1].to_owned()),
                 (":last_commands2", &last_commands[2].to_owned()),
                 (":start_time", &start_time.unwrap_or(0).to_owned()),
-                (":end_time", &end_time.unwrap_or(SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_else(|err| panic!(format!("McFly error: Time went backwards ({})", err))).as_secs() as i64).to_owned()),
-                (":now", &now.unwrap_or(SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_else(|err| panic!(format!("McFly error: Time went backwards ({})", err))).as_secs() as i64).to_owned()),
+                (":end_time", &end_time.unwrap_or(SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_else(|err| panic!("McFly error: Time went backwards ({})", err)).as_secs() as i64).to_owned()),
+                (":now", &now.unwrap_or(SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_else(|err| panic!("McFly error: Time went backwards ({})", err)).as_secs() as i64).to_owned()),
                 (":min_id", &min_id)
-            ]).unwrap_or_else(|err| panic!(format!("McFly error: Creation of temp table to work ({})", err)));
+            ]).unwrap_or_else(|err| panic!("McFly error: Creation of temp table to work ({})", err));
 
         self.connection
             .execute(
@@ -567,12 +554,7 @@ impl History {
                                     selected_occurrences_factor, occurrences_factor);",
                 NO_PARAMS,
             )
-            .unwrap_or_else(|err| {
-                panic!(format!(
-                    "McFly error: Ranking of temp table to work ({})",
-                    err
-                ))
-            });
+            .unwrap_or_else(|err| panic!("McFly error: Ranking of temp table to work ({})", err));
 
         self.connection
             .execute(
@@ -580,10 +562,10 @@ impl History {
                 NO_PARAMS,
             )
             .unwrap_or_else(|err| {
-                panic!(format!(
+                panic!(
                     "McFly error: Creation of index on temp table to work ({})",
                     err
-                ))
+                )
             });
 
         // println!("Seconds: {}", (beginning_of_execution.elapsed().as_secs() as f64) + (beginning_of_execution.elapsed().subsec_nanos() as f64 / 1000_000_000.0));
@@ -634,13 +616,11 @@ impl History {
 
         let command_iter: MappedRows<_> = statement
             .query_map_named(params, closure)
-            .unwrap_or_else(|err| panic!(format!("McFly error: Query Map to work ({})", err)));
+            .unwrap_or_else(|err| panic!("McFly error: Query Map to work ({})", err));
 
         let mut vec = Vec::new();
-        for result in command_iter {
-            if let Ok(command) = result {
-                vec.push(command);
-            }
+        for command in command_iter.flatten() {
+            vec.push(command);
         }
 
         vec
@@ -669,10 +649,10 @@ impl History {
                 &[(":command", &command)],
             )
             .unwrap_or_else(|err| {
-                panic!(format!(
+                panic!(
                     "McFly error: DELETE from selected_commands to work ({})",
                     err
-                ))
+                )
             });
 
         self.connection
@@ -680,12 +660,7 @@ impl History {
                 "DELETE FROM commands WHERE cmd = :command",
                 &[(":command", &command)],
             )
-            .unwrap_or_else(|err| {
-                panic!(format!(
-                    "McFly error: DELETE from commands to work ({})",
-                    err
-                ))
-            });
+            .unwrap_or_else(|err| panic!("McFly error: DELETE from commands to work ({})", err));
     }
 
     pub fn update_paths(&self, old_path: &str, new_path: &str, print_output: bool) {
@@ -710,7 +685,7 @@ impl History {
                     (":new_dir", &normalized_new_path),
                     (":length", &(normalized_old_path.chars().count() as u32 + 1)),
                 ])
-                .unwrap_or_else(|err| panic!(format!("McFly error: dir UPDATE to work ({})", err)));
+                .unwrap_or_else(|err| panic!("McFly error: dir UPDATE to work ({})", err));
 
             old_dir_update_statement
                 .execute_named(&[
@@ -719,9 +694,7 @@ impl History {
                     (":new_dir", &normalized_new_path),
                     (":length", &(normalized_old_path.chars().count() as u32 + 1)),
                 ])
-                .unwrap_or_else(|err| {
-                    panic!(format!("McFly error: old_dir UPDATE to work ({})", err))
-                });
+                .unwrap_or_else(|err| panic!("McFly error: old_dir UPDATE to work ({})", err));
 
             if print_output {
                 println!(
@@ -738,9 +711,9 @@ impl History {
         print!(
             "McFly: Importing shell history for the first time. This may take a minute or two..."
         );
-        io::stdout().flush().unwrap_or_else(|err| {
-            panic!(format!("McFly error: STDOUT flush should work ({})", err))
-        });
+        io::stdout()
+            .flush()
+            .unwrap_or_else(|err| panic!("McFly error: STDOUT flush should work ({})", err));
 
         // Load this first to make sure it works before we create the DB.
         let commands =
@@ -754,9 +727,9 @@ impl History {
             .unwrap_or_else(|_| panic!("Unable to create {:?}", mcfly_db_dir));
 
         // Make ~/.mcfly/history.db
-        let connection = Connection::open(mcfly_db_path)
-            .unwrap_or_else(|_| panic!("Unable to create history DB"));
-
+        let mut connection = Connection::open(mcfly_db_path).unwrap_or_else(|_| {
+            panic!("Unable to create history DB at {:?}", Settings::mcfly_db_path())
+        });
         db_extensions::add_db_functions(&connection);
 
         connection.execute_batch(
@@ -782,12 +755,15 @@ impl History {
                       dir TEXT NOT NULL \
                   ); \
                   CREATE INDEX selected_command_session_cmds ON selected_commands (session_id, cmd);"
-        ).unwrap_or_else(|err| panic!(format!("McFly error: Unable to initialize history db ({})", err)));
+        ).unwrap_or_else(|err| panic!("McFly error: Unable to initialize history db ({})", err));
 
+        let transaction = connection
+            .transaction()
+            .unwrap_or_else(|err| panic!("McFly error: Unable to begin transaction ({})", err));
         {
-            let mut statement = connection
+            let mut statement = transaction
                 .prepare("INSERT INTO commands (cmd, cmd_tpl, session_id, when_run, exit_code, selected) VALUES (:cmd, :cmd_tpl, :session_id, :when_run, :exit_code, :selected)")
-                .unwrap_or_else(|err| panic!(format!("McFly error: Unable to prepare insert ({})", err)));
+                .unwrap_or_else(|err| panic!("McFly error: Unable to prepare insert ({})", err));
             for command in commands {
                 if !IGNORED_COMMANDS.contains(&command.command.as_str()) {
                     let simplified_command = SimplifiedCommand::new(&command.command, true);
@@ -801,13 +777,14 @@ impl History {
                                 (":exit_code", &0),
                                 (":selected", &0),
                             ])
-                            .unwrap_or_else(|err| {
-                                panic!(format!("McFly error: Insert to work ({})", err))
-                            });
+                            .unwrap_or_else(|err| panic!("McFly error: Insert to work ({})", err));
                     }
                 }
             }
         }
+        transaction
+            .commit()
+            .unwrap_or_else(|err| panic!("McFly error: Unable to commit transaction: ({})", err));
 
         schema::first_time_setup(&connection);
 
@@ -820,12 +797,8 @@ impl History {
     }
 
     fn from_db_path(path: PathBuf) -> History {
-        let connection = Connection::open(path).unwrap_or_else(|err| {
-            panic!(format!(
-                "McFly error: Unable to open history database ({})",
-                err
-            ))
-        });
+        let connection = Connection::open(path)
+            .unwrap_or_else(|err| panic!("McFly error: Unable to open history database ({})", err));
         db_extensions::add_db_functions(&connection);
         History {
             connection,
