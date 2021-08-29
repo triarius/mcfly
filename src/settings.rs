@@ -31,6 +31,18 @@ pub enum InitMode {
     Fish,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum InterfaceView {
+    Top,
+    Bottom,
+}
+
+#[derive(Debug)]
+pub enum ResultSort {
+    Rank,
+    LastRun,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum HistoryFormat {
     /// bash format - commands in plain text, one per line, with multi-line commands joined.
@@ -71,6 +83,9 @@ pub struct Settings {
     pub limit: Option<i64>,
     pub skip_environment_check: bool,
     pub init_mode: InitMode,
+    pub delete_without_confirm: bool,
+    pub interface_view: InterfaceView,
+    pub result_sort: ResultSort,
 }
 
 impl Default for Settings {
@@ -96,6 +111,9 @@ impl Default for Settings {
             limit: None,
             skip_environment_check: false,
             init_mode: InitMode::Bash,
+            delete_without_confirm: false,
+            interface_view: InterfaceView::Top,
+            result_sort: ResultSort::Rank,
         }
     }
 }
@@ -184,6 +202,9 @@ impl Settings {
                     .short("f")
                     .long("fuzzy")
                     .help("Fuzzy-find results instead of searching for contiguous strings"))
+                .arg(Arg::with_name("delete_without_confirm")
+                    .long("delete_without_confirm")
+                    .help("Delete entry without confirm"))
                 .arg(Arg::with_name("output_selection")
                     .short("o")
                     .long("output-selection")
@@ -235,6 +256,25 @@ impl Settings {
         settings.limit = env::var("MCFLY_HISTORY_LIMIT")
             .ok()
             .and_then(|o| o.parse::<i64>().ok());
+
+        settings.interface_view = match env::var("MCFLY_INTERFACE_VIEW") {
+            Ok(val) => match val.as_str() {
+                "TOP" => InterfaceView::Top,
+                "BOTTOM" => InterfaceView::Bottom,
+                _ => InterfaceView::Top,
+            },
+            _ => InterfaceView::Top,
+        };
+
+        settings.result_sort = match env::var("MCFLY_RESULTS_SORT") {
+            Ok(val) => match val.as_str() {
+                "RANK" => ResultSort::Rank,
+                "LAST_RUN" => ResultSort::LastRun,
+                _ => ResultSort::Rank,
+            },
+            _ => ResultSort::Rank,
+        };
+
         settings.session_id = matches
             .value_of("session_id")
             .map(|s| s.to_string())
@@ -367,6 +407,9 @@ impl Settings {
                 settings.fuzzy =
                     search_matches.is_present("fuzzy") || env::var("MCFLY_FUZZY").is_ok();
 
+                settings.delete_without_confirm = search_matches
+                    .is_present("delete_without_confirm")
+                    || env::var("MCFLY_DELETE_WITHOUT_CONFIRM").is_ok();
                 settings.output_selection = search_matches
                     .value_of("output_selection")
                     .map(|s| s.to_owned());

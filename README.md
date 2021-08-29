@@ -253,6 +253,34 @@ fish:
 set -gx MCFLY_RESULTS 50
 ```
 
+### Interface view
+To change interface view, set `MCFLY_INTERFACE_VIEW` (default: `TOP`).
+Available options: `TOP` and `BOTTOM`
+
+bash / zsh:
+```bash
+export MCFLY_INTERFACE_VIEW=BOTTOM
+```
+
+fish:
+```bash
+set -gx MCFLY_INTERFACE_VIEW BOTTOM
+```
+
+### Results sorting
+To change the sorting of results shown, set `MCFLY_RESULTS_SORT` (default: RANK).
+Possible values `RANK` and `LAST_RUN`
+
+bash / zsh:
+```bash
+export MCFLY_RESULTS_SORT=LAST_RUN
+```
+
+fish:
+```bash
+set -gx MCFLY_RESULTS_SORT LAST_RUN
+```
+
 ### Slow startup
 
 If you have a very large history database and you notice that McFly launches slowly, you can set `MCFLY_HISTORY_LIMIT` to something like 10000 to limit how many records are considered when searching. In this example, McFly would search only the latest 10,000 entries.
@@ -267,6 +295,10 @@ If you have a very large history database and you notice that McFly launches slo
   * Learn command embeddings
 
 ## Development
+
+### Contributing
+
+Contributions and bug fixes are encouraged! However, we may not merge PRs that increase complexity significantly beyond what is already required to maintain the project. If you're in doubt, feel free to open an issue and ask.
 
 ### Running tests
 
@@ -285,7 +317,8 @@ If you have a very large history database and you notice that McFly launches slo
 1. Edit the new Release on Github.
 1. Edit `pkg/brew/mcfly.rb` and update the version and SHAs. (`shasum -a 256 ...`)
 1. Edit `../homebrew-mcfly/pkg/brew/mcfly.rb` too.
-1. Compare with `diff ../homebrew-mcfly/pkg/brew/mcfly.rb ../mcfly/pkg/brew/mcfly.rb ; diff ../homebrew-mcfly/HomebrewFormula/mcfly.rb ../mcfly/HomebrewFormula/mcfly.rb`
+  1. `cp pkg/brew/mcfly.rb ../homebrew-mcfly/pkg/brew/mcfly.rb`
+  1. Compare with `diff ../homebrew-mcfly/pkg/brew/mcfly.rb ../mcfly/pkg/brew/mcfly.rb ; diff ../homebrew-mcfly/HomebrewFormula/mcfly.rb ../mcfly/HomebrewFormula/mcfly.rb`
 1. `git add -p && git ci -m 'Update homebrew' && git push`
 1. `cd ../homebrew-mcfly && git add -p && git ci -m 'Update homebrew' && git push && cd ../mcfly`
 1. `cargo publish`
