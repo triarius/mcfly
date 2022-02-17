@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/cantino/mcfly.svg?branch=master)](https://travis-ci.org/cantino/mcfly)
+![Build Status](https://github.com/cantino/mcfly/actions/workflows/mean_bean_ci.yml/badge.svg)
 [![](https://img.shields.io/crates/v/mcfly.svg)](https://crates.io/crates/mcfly)
 
 # McFly - fly through your shell history
@@ -8,7 +8,7 @@
 McFly replaces your default `ctrl-r` shell history search with an intelligent search engine that takes into account
 your working directory and the context of recently executed commands. McFly's suggestions are prioritized
 in real time with a small neural network.
- 
+
 TL;DR: an upgraded `ctrl-r` where history results make sense for what you're working on right now.
 
 ## Features
@@ -48,7 +48,7 @@ When suggesting a command, McFly takes into consideration:
     ```bash
     brew install mcfly
     ```
-1. Add the following to the end of your `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` file, as appropriate, changing `/usr/local` to your `brew --prefix` if needed:
+1. Add the following to the end of your `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish` file:
 
     Bash:
     ```bash
@@ -186,6 +186,17 @@ When suggesting a command, McFly takes into consideration:
     ```
 1. Run `. ~/.bashrc` / `. ~/.zshrc` / `source ~/.config/fish/config.fish` or restart your terminal emulator.
 
+### Install by [Zinit](https://github.com/zdharma-continuum/zinit)
+
+* Add below code to your zshrc.
+
+    ```zsh
+    zinit ice lucid wait"0a" from"gh-r" as"program" atload'eval "$(mcfly init zsh)"' 
+    zinit light cantino/mcfly 
+    ```
+* It will download mcfly and install for you.
+* `$(mcfly init zsh)` will be executed after prompt
+
 ## iTerm2
 
 To avoid McFly's UI messing up your scrollback history in iTerm2, make sure this option is unchecked:
@@ -215,6 +226,16 @@ fish:
 set -gx MCFLY_LIGHT TRUE
 ```
 
+Tip: on macOS you can use the following snippet for color scheme to be configured based on system-wide settings:
+
+bash / zsh:
+```bash
+if [[ "$(defaults read -g AppleInterfaceStyle 2&>/dev/null)" != "Dark" ]]; then
+    export MCFLY_LIGHT=TRUE
+fi
+```
+
+
 ### VIM Key Scheme
 By default Mcfly uses an `emacs` inspired key scheme. If you would like to switch to the `vim` inspired key scheme, set the environment variable `MCFLY_KEY_SCHEME`.
 
@@ -229,16 +250,16 @@ set -gx MCFLY_KEY_SCHEME vim
 ```
 
 ### Fuzzy Searching
-To enable fuzzy searching, set `MCFLY_FUZZY`.
+To enable fuzzy searching, set `MCFLY_FUZZY` to an integer. 0 is off; higher numbers weight toward shorter matches. Values in the 2-5 range get good results so far; try a few and [report what works best for you](https://github.com/cantino/mcfly/issues/183)!
 
 bash / zsh:
 ```bash
-export MCFLY_FUZZY=true
+export MCFLY_FUZZY=2
 ```
 
 fish:
 ```bash
-set -gx MCFLY_FUZZY true
+set -gx MCFLY_FUZZY 2
 ```
 
 ### Results Count
@@ -266,6 +287,19 @@ export MCFLY_INTERFACE_VIEW=BOTTOM
 fish:
 ```bash
 set -gx MCFLY_INTERFACE_VIEW BOTTOM
+```
+
+### Disable menu interface
+To disable the menu interface, set the environment variable `MCFLY_DISABLE_MENU`.
+
+bash / zsh:
+```bash
+export MCFLY_DISABLE_MENU=TRUE
+```
+
+fish:
+```bash
+set -gx MCFLY_DISABLE_MENU TRUE
 ```
 
 ### Results sorting
@@ -309,6 +343,7 @@ Contributions and bug fixes are encouraged! However, we may not merge PRs that i
 
 1. Edit `Cargo.toml` and bump the version.
 1. Edit CHANGELOG.txt
+1. Run `cargo clippy` and `cargo fmt`.
 1. Recompile (`cargo build`).
 1. `git add -p`
 1. `git ci -m 'Bumping to vx.x.x'`

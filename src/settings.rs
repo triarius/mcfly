@@ -65,7 +65,7 @@ pub enum HistoryFormat {
 pub struct Settings {
     pub mode: Mode,
     pub debug: bool,
-    pub fuzzy: bool,
+    pub fuzzy: i16,
     pub session_id: String,
     pub mcfly_history: PathBuf,
     pub output_selection: Option<String>,
@@ -86,6 +86,7 @@ pub struct Settings {
     pub delete_without_confirm: bool,
     pub interface_view: InterfaceView,
     pub result_sort: ResultSort,
+    pub disable_menu: bool,
 }
 
 impl Default for Settings {
@@ -104,7 +105,7 @@ impl Default for Settings {
             refresh_training_cache: false,
             append_to_histfile: false,
             debug: false,
-            fuzzy: false,
+            fuzzy: 0,
             lightmode: false,
             key_scheme: KeyScheme::Emacs,
             history_format: HistoryFormat::Bash,
@@ -114,6 +115,7 @@ impl Default for Settings {
             delete_without_confirm: false,
             interface_view: InterfaceView::Top,
             result_sort: ResultSort::Rank,
+            disable_menu: false,
         }
     }
 }
@@ -141,7 +143,7 @@ impl Settings {
                 .takes_value(true))
             .arg(Arg::with_name("history_format")
                 .long("history_format")
-                .help("Shell history file format, 'bash', 'zsh', or 'fish' (defaults to 'bash')")
+                .help("Shell history file format, 'bash', 'zsh', 'zsh-extended' or 'fish' (defaults to 'bash')")
                 .value_name("FORMAT")
                 .takes_value(true))
             .subcommand(SubCommand::with_name("add")
@@ -155,10 +157,7 @@ impl Settings {
                     .takes_value(true))
                 .arg(Arg::with_name("append_to_histfile")
                     .long("append-to-histfile")
-                    .help("Also append new history to $HISTFILE (e.q., .bash_history)"))
-                .arg(Arg::with_name("zsh_extended_history")
-                    .long("zsh-extended-history")
-                    .help("If appending, use zsh's EXTENDED_HISTORY format"))
+                    .help("Also append new history to $HISTFILE/$MCFLY_HISTFILE (e.q., .bash_history)"))
                 .arg(Arg::with_name("when")
                     .short("w")
                     .long("when")
@@ -201,7 +200,7 @@ impl Settings {
                 .arg(Arg::with_name("fuzzy")
                     .short("f")
                     .long("fuzzy")
-                    .help("Fuzzy-find results instead of searching for contiguous strings"))
+                    .help("Fuzzy-find results. 0 is off; higher numbers weight shorter/earlier matches more. Try 2"))
                 .arg(Arg::with_name("delete_without_confirm")
                     .long("delete_without_confirm")
                     .help("Delete entry without confirm"))
@@ -314,6 +313,9 @@ impl Settings {
             Some("zsh") => HistoryFormat::Zsh {
                 extended_history: false,
             },
+            Some("zsh-extended") => HistoryFormat::Zsh {
+                extended_history: true,
+            },
             Some("fish") => HistoryFormat::Fish,
             Some(format) => panic!("McFly error: unknown history format '{}'", format),
         };
@@ -334,12 +336,6 @@ impl Settings {
                 );
 
                 settings.append_to_histfile = add_matches.is_present("append_to_histfile");
-                if add_matches.is_present("zsh_extended_history") {
-                    match settings.history_format {
-                        HistoryFormat::Zsh { .. } => settings.history_format = HistoryFormat::Zsh { extended_history: true },
-                        HistoryFormat::Bash | HistoryFormat::Fish => panic!("McFly error: cannot specify zsh extended history with non-zsh history format"),
-                    }
-                }
 
                 if add_matches.value_of("exit").is_some() {
                     settings.exit_code =
@@ -404,8 +400,18 @@ impl Settings {
                     settings.results = results;
                 }
 
-                settings.fuzzy =
-                    search_matches.is_present("fuzzy") || env::var("MCFLY_FUZZY").is_ok();
+                if let Ok(fuzzy) = env::var("MCFLY_FUZZY") {
+                    if let Ok(fuzzy) = i16::from_str(&fuzzy) {
+                        settings.fuzzy = fuzzy;
+                    } else if fuzzy.to_lowercase() != "false" {
+                        settings.fuzzy = 2;
+                    }
+                }
+                if let Ok(fuzzy) = value_t!(search_matches.value_of("fuzzy"), i16) {
+                    settings.fuzzy = fuzzy;
+                } else if search_matches.is_present("fuzzy") {
+                    settings.fuzzy = 2;
+                }
 
                 settings.delete_without_confirm = search_matches
                     .is_present("delete_without_confirm")
@@ -476,6 +482,12 @@ impl Settings {
             Some(_val) => true,
             None => false,
         };
+
+        settings.disable_menu = match env::var_os("MCFLY_DISABLE_MENU") {
+            Some(_val) => true,
+            None => false,
+        };
+
         settings.key_scheme = match env::var("MCFLY_KEY_SCHEME").as_ref().map(String::as_ref) {
             Ok("vim") => KeyScheme::Vim,
             _ => KeyScheme::Emacs,
